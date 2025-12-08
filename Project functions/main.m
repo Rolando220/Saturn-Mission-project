@@ -38,12 +38,13 @@ sat.orbit0.nu = -240.4281;     % deg
 %% Initialization
 % Select starting date and convert it in Julian Date
 timezone = 'UTC';
-start_date = datetime('2031-02-12 12:00:00', "TimeZone", timezone);
-%% 
-end_date = datetime('2033-05-31 12:00:00', "TimeZone", timezone);
+
+start_date = datetime('2004-03-02 07:17:00', "TimeZone", timezone);
+mars_fb_date = datetime('2007-02-25 01:54:00', "TimeZone", timezone);
+
+end_date = datetime('2009-09-13 12:00:00', "TimeZone", timezone);
 
 jd_start = juliandate(start_date);
-%% 
 jd_end = juliandate(end_date);
 
 % Select planets to visualize
@@ -61,7 +62,7 @@ jd_vec = jd_start:step:jd_end;
 t_interp = jd_vec*24*60*60;
 
 %% Define approximated dates of fly-by and arrival on Jupiter
-mars_fb_date = start_date + 96;
+%mars_fb_date = start_date + 96;
 jupiter_arrival_date = start_date + 2.3*365;
 
 jd_mars_fb = juliandate(mars_fb_date);
@@ -160,8 +161,8 @@ sat.orbit_escape_earth.e = 1 + (norm(v_inf)*au)^2/v_c^2;
 % Compute phase angle theta_f and alpha, and maneuver anomaly on the
 % initial circular orbit
 theta_f = pi + acos(1/sat.orbit_escape_earth.e); %angolo asintoto 
-%alpha = atan2(v_earth(2, 1), v_earth(1, 1));
-alpha = atan2(v_inf(2), v_inf(1));
+alpha = atan2(v_earth(2, 1), v_earth(1, 1));
+%alpha = atan2(v_inf(2), v_inf(1));
 sat.orbit0.nu_manoeuver = rad2deg(alpha + theta_f - 2*pi); %punto esatto accensione motori 
 
 % Compute hyperbola perigee position vector equal to position at
@@ -329,3 +330,6 @@ fprintf('Errore angolare: %.2f gradi\n', angle_err);
 % of final desired orbit
 
 % Compute deltaV for the final insertion manoeuver
+
+
+
