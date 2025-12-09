@@ -1,7 +1,7 @@
 function planets_elements = elements_from_ephems(planets_list, jd_time)
 % This function computes the actual orbital elements for the requested
 % Julian Date for the planets specified in the input
-jd_T = date2jd('2000-01-01 12:00:00', 'UTC');
+jd_T = juliandate(datetime('2000-01-01 12:00:00', "TimeZone", 'UTC'));
 T = (jd_time - jd_T)/36525;
 planets_ephem0 = ephems(planets_list);
 
