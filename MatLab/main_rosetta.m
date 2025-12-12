@@ -298,4 +298,27 @@ cos_theta = dot(v_obtained, v_required) / (norm(v_obtained) * norm(v_required));
 angle_err = rad2deg(acos(cos_theta));
 fprintf('Errore angolare: %.2f gradi\n', angle_err);
 
+%% Propagate inside Mars SoI
+% Propagate inside the Mars SoI till the satellite exits the Mars SoI
+options_mars_fb = odeset('RelTol', 2.22045e-14, 'AbsTol', 1e-18, 'Events', @(t, y) stopCondition(t, y, soi_mars));
+state0_sat_mars_escape = [r_sat_mars_km; v_sat_mars_km]; % punto di partenza simulazione (calcolato prima) 
+t_vec_mars_escape = linspace(t_vec_cruise_earth_mars(end), t_vec_cruise_earth_mars(end)+gg*24*60*60, gg*24*60/30);
+[t_vec_mars_escape, state_sat_mars_escape] = ode45(@(t, y) satellite_ode(t, y, mu_mars), t_vec_mars_escape, state0_sat_mars_escape, options_mars_fb);
+r_sat_mars_escape = state_sat_mars_escape(:, 1:3)';
+v_sat_mars_escape = state_sat_mars_escape(:, 4:6)';
+
+% Compute jd time and Mars position when satellite is exiting Mars SoI limit
+jd_mars_sp = t_vec_mars_escape(end)/24/60/60; % momento esatto in cui si ha uscita Earth SoI
+mars_soi_date = datetime(jd_mars_sp,'convertfrom','juliandate','Format','d-MMM-y HH:mm:ss', 'TimeZone', timezone);
+[~, r_mars_sp, v_mars_sp] = planet_orbit_coplanar(planets_elements.mars, jd_start, jd_mars_sp, [jd_start, jd_mars_sp]);
+r_mars_sp = r_mars_sp(:, end); % posizione e velocità della terra al momento in cui sat buca SoI 
+v_mars_sp = v_mars_sp(:, end);
+
+% Convert from ECI to J2000 absolute frame
+r_sat_mars_sp = r_sat_mars_escape(:, end)/au + r_mars_sp;
+v_sat_mars_sp = v_sat_mars_escape(:, end)/au + v_mars_sp;
+
+% Convert from Mars-Centered to J2000 absolute frame
+
+% Compute fly-by deltaV
 
