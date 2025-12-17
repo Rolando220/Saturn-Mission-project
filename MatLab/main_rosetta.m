@@ -341,6 +341,9 @@ v_sat_earth_sp = v_sat_earth_escape(:, end)/au + v_earth_sp;
 
 state0_interplanetary_earth_mars = [r_sat_earth_sp; v_sat_earth_sp];
 
+mars_elements_at_departure = elements_from_ephems({'mars'}, jd_earth_sp);
+mars_elements_for_ode = mars_elements_at_departure.mars;
+
 % parametro correttivo gg interplanetary
 kg = 0;
 % calcolo il tempo per arrivare da fuori SoI Terra a dentro SoI marte 
@@ -349,7 +352,7 @@ t_cruise_total_earth_mars = jd_mars_fb*24*60*60 - t_vec_escape(end); %durata in 
 t_cruise_total_earth_mars=t_cruise_total_earth_mars+kg*24*60*60;
 t_vec_cruise_earth_mars= linspace(t_vec_escape(end), jd_mars_fb*24*60*60  + (kg*24*60*60) ,t_cruise_total_earth_mars/3600);
 % propagazione
-options_cruise_earth_mars = odeset('RelTol', 2.22045e-14, 'AbsTol', 1e-18, 'Events', @(t, y) stopCondition_interplanetary(t, y, jd_earth_sp , planets_elements.mars, soi_mars));
+options_cruise_earth_mars = odeset('RelTol', 2.22045e-14, 'AbsTol', 1e-18, 'Events', @(t, y) stopCondition_interplanetary(t, y, jd_earth_sp , mars_elements_for_ode, soi_mars));
 [t_vec_cruise_earth_mars, state_cruise_earth_mars] = ode45(@(t, y) satellite_ode(t, y, mu_sun_au), t_vec_cruise_earth_mars, state0_interplanetary_earth_mars, options_cruise_earth_mars);
 
 % Estrazione Risultati finali (Stato Eliocentrico all'arrivo)

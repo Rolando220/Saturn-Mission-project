@@ -18,10 +18,10 @@ function [value, isterminal, direction] = stopCondition_interplanetary(t, y, jd_
 
     %2. Individua la posizione del pianeta all'istante considerato frame
     %[J2000]
-    jd_end = jd_start + t/60/60/24 ; 
+    jd_end = t/60/60/24 ; 
     [~, r_mars_actual , ~] = planet_orbit_coplanar(planet_elements, jd_start, jd_end , [jd_start, jd_end]);
     r_mars_actual_km = r_mars_actual(: , end) * au;
-    vec_diff = abs(r_mars_actual_km - r_sat_km); 
+    vec_diff = r_mars_actual_km - r_sat_km; 
 
     % 2. Definisci l'evento (VALUE)
     % MATLAB cerca quando questa variabile attraversa lo Zero.
