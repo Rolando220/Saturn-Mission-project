@@ -37,7 +37,7 @@ sat.orbit0.nu = -240.4281;     % deg
 %% Initialization
 % Select starting date and convert it in Julian Date
 timezone = 'UTC';
-start_date = datetime('2006-03-04 12:00:00', "TimeZone", timezone);
+start_date = datetime('2005-03-04 12:00:00', "TimeZone", timezone);
 mars_fb_date = datetime('2007-02-25 12:00:00', "TimeZone", timezone);
 end_date = datetime('2014-10-19 12:00:00', "TimeZone", timezone);
 
@@ -109,7 +109,7 @@ deltaT_earth_mars = (jd_mars_fb - jd_start)*24*60*60;
 
 
 % Compute initial and final velocities in au/s
-[v_earth_sp_appr, v_mars_sa_appr, ~, exitflag] = lambert(r_earth(:, 1)', r_mars_fb', deltaT_earth_mars, 0, mu_sun_au, 'au', 'sec');
+[v_earth_sp_appr, v_mars_sa_appr, ~, exitflag] = lambert(r_earth(:, 1)', r_mars_fb', deltaT_earth_mars, 1, mu_sun_au, 'au', 'sec');
 
 if dot(v_earth_sp_appr, v_earth(:,1)) < 0
     fprintf('Traiettoria retrograda rispetto alla Terra → non fisica');
@@ -232,8 +232,8 @@ fprintf('===========================================================\n');
 % La soluzione: Correggiamo leggermente la velocità e l'angolo di uscita.
 
 % 1. Definiamo i fattori di correzione
-k_vel = 1.0025;        % Moltiplicatore di velocità (es. 0.999 o 1.001)
-delta_angle = -0.059925;   % Correzione angolo in gradi (es. +0.5 o -0.5)
+k_vel = 0.9961;        % Moltiplicatore di velocità (es. 0.999 o 1.001)
+delta_angle = -0.8326;   % Correzione angolo in gradi (es. +0.5 o -0.5)
 
 % 2. Applichiamo la correzione alla Magnitudine
 v_esc_mag_corr = norm(v_esc) * k_vel;
@@ -300,7 +300,7 @@ mars_elements_at_departure = elements_from_ephems({'mars'}, jd_earth_sp);
 mars_elements_for_ode = mars_elements_at_departure.mars;
 
 % parametro correttivo gg interplanetary
-kg = 10;
+kg = 0;
 % calcolo il tempo per arrivare da fuori SoI Terra a dentro SoI marte 
 t_cruise_total_earth_mars = jd_mars_fb*24*60*60 - t_vec_escape(end); %durata in secondi del viaggio 
 
