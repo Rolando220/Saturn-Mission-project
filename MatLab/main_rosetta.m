@@ -232,8 +232,15 @@ fprintf('===========================================================\n');
 % La soluzione: Correggiamo leggermente la velocità e l'angolo di uscita.
 
 % 1. Definiamo i fattori di correzione
+
+% Correzioni fly by marte con partenza 2005 e lambert che completa un'orbita
 k_vel = 0.9961;        % Moltiplicatore di velocità (es. 0.999 o 1.001)
 delta_angle = -0.8326;   % Correzione angolo in gradi (es. +0.5 o -0.5)
+
+
+%Correzioni fly by marte con partenza 2006 e lambert nessuna orbita completa
+% k_vel = 1.0025;        % Moltiplicatore di velocità (es. 0.999 o 1.001)
+% delta_angle = -0.059925;   % Correzione angolo in gradi (es. +0.5 o -0.5)
 
 % 2. Applichiamo la correzione alla Magnitudine
 v_esc_mag_corr = norm(v_esc) * k_vel;
@@ -426,7 +433,6 @@ r_mars_sp = r_mars_sp(:, end);
 v_mars_sp = v_mars_sp(:, end);
 
 % Convert from Mars-Centered to J2000 absolute frame
-
 r_sat_marsfb_sp = r_sat_mars_escape(:, end)/au + r_mars_sp;
 v_sat_marsfb_sp = v_sat_mars_escape(:, end)/au + v_mars_sp;
 
@@ -434,8 +440,11 @@ v_sat_marsfb_sp = v_sat_mars_escape(:, end)/au + v_mars_sp;
 
 deltaV_marsfb = ( norm(v_sat_marsfb_sp) - norm(v_sat_interplanetary_earth_mars) ) * au;
 
-pericenter = norm(r_sat_mars_escape(:, end));
+%pericenter = norm(r_sat_mars_escape(:, end));
 fprintf('Pericentro della traiettoria: %.2f km\n', pericenter);
 fprintf('Delta V del Fly-by per Marte: %.2f km/s \n', deltaV_marsfb);
 
 plot_mars_soi(t_vec_mars_escape, r_sat_mars_escape, soi_mars, v_mars_sp);
+
+sat.orbit_post_mars_fb = rv2oe(r_sat_marsfb_sp, v_sat_marsfb_sp, mu_sun_au);
+
