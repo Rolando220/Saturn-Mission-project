@@ -123,7 +123,7 @@ v_earth_sp_appr = v_earth_sp_appr'; %velocità eliocentrica di partenza
 v_mars_sa_appr = v_mars_sa_appr'; %velocità eliocentrica di arrivo
 
 % Compute transfer trajectory orbital parameters
-sat.orbit_transfer_earth_mars = rv2oe(r_earth(:, 1), v_earth_sp_appr, mu_sun_au);
+sat.orbit_transfer_earth_mars_lambert = rv2oe(r_earth(:, 1), v_earth_sp_appr, mu_sun_au);
 
 
 %% PHASE 3
@@ -228,7 +228,6 @@ end
 fprintf('===========================================================\n');
 
 
-
 % -------------------------------------------------------------------------
 % CORREZIONE MANUALE DEL TIRO (TARGETING)
 % -------------------------------------------------------------------------
@@ -266,8 +265,6 @@ fprintf('\n--- TARGETING CORRECTION APPLIED ---\n');
 fprintf('Velocità scalata di: %.4f\n', k_vel);
 fprintf('Angolo ruotato di:   %.2f deg\n', delta_angle);
 
-
-
 %% PHASE 4
 % -----------------------------------------------------------------------------------------------------------------------------------------------------
 % PROPAGATION OF COMPUTED INITIAL VALUES AFTER ESCAPE MANOEUVER FROM EARTH
@@ -300,6 +297,9 @@ v_earth_sp = v_earth_sp(:, end);
 % Convert from ECI to J2000 absolute frame
 r_sat_earth_sp = r_sat_earth_escape(:, end)/au + r_earth_sp;
 v_sat_earth_sp = v_sat_earth_escape(:, end)/au + v_earth_sp;
+
+% Compute transfer trajectory orbital parameters
+sat.orbit_transfer_earth_mars = rv2oe(r_sat_earth_sp, v_sat_earth_sp, mu_sun_au);
 
 
 %% Propagate from outside Earth SoI to Mars SoI - interplanetary 
@@ -420,7 +420,40 @@ deltaV_marsfb = ( norm(v_sat_marsfb_sp) - norm(v_sat_interplanetary_earth_mars) 
 % fprintf('Pericentro della traiettoria: %.2f km\n', pericenter);
 fprintf('Delta V del Fly-by per Marte: %.2f km/s \n', deltaV_marsfb);
 
-% plot_mars_soi(t_vec_mars_escape, r_sat_mars_escape, soi_mars, v_mars_sp);
+plot_mars_soi(t_vec_mars_escape, r_sat_mars_escape, soi_mars, v_mars_sp);
+
+% -------------------------------------------------------------------------
+% CORREZIONE MANUALE DEL TIRO (TARGETING) - POST MARS FLYBY
+% -------------------------------------------------------------------------
+% Correggiamo leggermente la velocità e l'angolo di uscita dalla SOI di Marte
+% per compensare eventuali errori di puntamento verso la Terra
+
+% 1. Definiamo i fattori di correzione
+k_vel_mars = 1.25;        % Moltiplicatore di velocità (es. 0.999 o 1.001)
+delta_angle_mars = 5;   % Correzione angolo in gradi (es. +0.5 o -0.5)
+
+% 2. Applichiamo la correzione alla Magnitudine
+v_marsfb_sp_mag_corr = norm(v_sat_marsfb_sp) * k_vel_mars;
+
+% 3. Applichiamo la correzione alla Direzione
+% Direzione attuale della velocità
+v_marsfb_sp_dir = v_sat_marsfb_sp / norm(v_sat_marsfb_sp);
+
+% Ruotiamo il vettore direzione di 'delta_angle_mars' gradi nel piano dell'Eclittica
+theta_corr_mars = deg2rad(delta_angle_mars);
+R_corr_mars = [cos(theta_corr_mars), -sin(theta_corr_mars), 0;
+               sin(theta_corr_mars),  cos(theta_corr_mars), 0;
+               0,                     0,                    1];
+      
+v_marsfb_sp_dir_corr = (R_corr_mars * v_marsfb_sp_dir)'; % Ruotiamo
+
+% 4. Ricalcoliamo il vettore di velocità finale CORRETTO
+v_sat_marsfb_sp = (v_marsfb_sp_mag_corr * v_marsfb_sp_dir_corr)';
+
+% (Stampa di debug per vedere cosa stiamo facendo)
+fprintf('\n--- TARGETING CORRECTION APPLIED (POST MARS FLYBY) ---\n');
+fprintf('Velocità scalata di: %.4f\n', k_vel_mars);
+fprintf('Angolo ruotato di:   %.2f deg\n', delta_angle_mars);
 
 sat.orbit_post_mars_fb = rv2oe(r_sat_marsfb_sp, v_sat_marsfb_sp, mu_sun_au);
 
@@ -478,16 +511,7 @@ else
     fprintf('Errore di puntamento: %.2f km\n', dist_from_earth1 - soi_earth);
 end
 
-% % Prepara struct per Mars->Earth
-% leg2.state = state_cruise_mars_earth;    % Nx6 AU/AU/s (se disponibile)
-% leg2.tvec  = t_vec_cruise_mars_earth;
-% leg2.label = 'Mars->Earth';
-% leg2.depart.name = 'mars';
-% leg2.depart.r = r_sat_marsfb_sp;         % AU
-% leg2.arrival.name = 'earth';
-% leg2.arrival.r = r_earth1_arr;           % AU
-% leg2.soi_km = soi_earth;
-% leg2.color = [0 0.4 0.8];
-% 
-% plot_interplanetary_phases(leg2, planets_elements, jd_start, timezone);
-
+plot_interplanetary_phase(state_cruise_mars_earth, t_vec_cruise_mars_earth, ...
+    struct('name','mars', 'r_soi',r_sat_marsfb_sp, 'v_soi',v_sat_marsfb_sp, 'jd_soi',jd_mars_sp), ...
+    struct('name','earth', 'r_arrival',r_earth1_arr, 'v_arrival',v_earth1_arr, 'jd_arrival',jd_earth1_arrival_actual), ...
+    planets_elements, jd_start, soi_mars, soi_earth, timezone, 'Mars->Earth');
