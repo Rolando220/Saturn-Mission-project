@@ -180,55 +180,11 @@ v_circ = v_c * v_direction;
 sat.deltaV_escape_earth = norm(v_esc - v_circ);
 
 %% DEBUG – Escape diagnostics
-
-fprintf('\n================ EARTH ESCAPE DIAGNOSTICS ================\n');
-
-% --- Velocity magnitudes ---
+fprintf('================ EARTH ESCAPE DIAGNOSTICS =================\n');
 fprintf('||v_inf||              = %.3f km/s\n', norm(v_inf_kms));
 fprintf('||v_c (parking)||      = %.3f km/s\n', v_c);
 fprintf('||v_perigee_hyper||    = %.3f km/s\n', v_hyperbola_perigee_mag);
 fprintf('DeltaV escape          = %.3f km/s\n', sat.deltaV_escape_earth);
-
-% --- Direction checks ---
-v_inf_dir   = v_inf_kms / norm(v_inf_kms);
-v_esc_dir   = v_esc / norm(v_esc);
-v_earth_dir = (v_earth(:,1)*au) / norm(v_earth(:,1)*au);
-
-% Dot products (cosines of angles)
-cos_esc_earth = dot(v_esc_dir, v_earth_dir);
-cos_inf_earth = dot(v_inf_dir, v_earth_dir);
-cos_esc_inf   = dot(v_esc_dir, v_inf_dir);
-
-fprintf('\nDirection cosines:\n');
-fprintf('cos(v_esc , v_earth)   = %.4f\n', cos_esc_earth);
-fprintf('cos(v_inf , v_earth)   = %.4f\n', cos_inf_earth);
-fprintf('cos(v_esc , v_inf)     = %.4f\n', cos_esc_inf);
-
-% --- Angles in degrees (more intuitive)
-ang_esc_earth = acosd(cos_esc_earth);
-ang_inf_earth = acosd(cos_inf_earth);
-ang_esc_inf   = acosd(cos_esc_inf);
-
-fprintf('\nAngles [deg]:\n');
-fprintf('angle(v_esc , v_earth) = %.2f deg\n', ang_esc_earth);
-fprintf('angle(v_inf , v_earth) = %.2f deg\n', ang_inf_earth);
-fprintf('angle(v_esc , v_inf)   = %.2f deg\n', ang_esc_inf);
-
-% --- Interpretation ---
-fprintf('\nInterpretation:\n');
-
-if cos_inf_earth > 0
-    fprintf('- v_inf is roughly ALIGNED with Earth velocity (leading escape)\n');
-else
-    fprintf('- v_inf is roughly OPPOSITE to Earth velocity (trailing escape)\n');
-end
-
-if abs(ang_esc_inf) < 5
-    fprintf('- v_esc direction is consistent with asymptotic v_inf\n');
-else
-    fprintf('- WARNING: v_esc and v_inf are NOT well aligned\n');
-end
-
 fprintf('===========================================================\n');
 
 
@@ -262,9 +218,12 @@ v_dir_corr = (R_corr * v_direction)'; % Ruotiamo
 v_esc = (v_esc_mag_corr * v_dir_corr)';
 
 % (Stampa di debug per vedere cosa stiamo facendo)
-fprintf('\n--- TARGETING CORRECTION APPLIED ---\n');
+fprintf('\n============== TARGETING CORRECTION APPLIED ===============\n');
+fprintf('Earth Departure Corrections\n');
 fprintf('Velocità scalata di: %.4f\n', k_vel);
 fprintf('Angolo ruotato di:   %.2f deg\n', delta_angle);
+fprintf('===========================================================\n');
+
 
 %% PHASE 4
 % -----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -344,23 +303,26 @@ v_sat_earth_km = v_rel_au * au;
 % check if Earth SoI has been reached
 dist_from_earth = norm(r_sat_earth_km);
 
-fprintf('\n--- INTERPLANETARY EARTH-EARTH CRUISE REPORT ---\n');
-fprintf('Durata viaggio: %.2f giorni\n', (t_vec_cruise_earth_earth(end) - t_vec_cruise_earth_earth(1)) / 86400);
-fprintf('Distanza finale dalla Terra: %.2f km\n', dist_from_earth);
-fprintf('Raggio SOI Terra: %.2f km\n', soi_earth);
 
+fprintf('\n============= EARTH-EARTH CRUISE PHASE REPORT =============\n');
+fprintf('Time of Flight: %.2f days\n', (t_vec_cruise_earth_earth(end) - t_vec_cruise_earth_earth(1)) / 86400);
 if dist_from_earth < soi_earth
-    fprintf('SUCCESS: La sonda è entrata nella SOI della Terra!\n');
+    fprintf('SUCCESS: Spacecraft successfully entered Earth''s SOI!\n');
 else
-    fprintf('WARNING: La sonda è arrivata vicina, ma fuori dalla SOI.\n');
-    fprintf('Errore di puntamento: %.2f km\n', dist_from_earth - soi_earth);
+    fprintf('WARNING: Spacecraft arrived outside the SOI.\n');
+    fprintf('Miss distance from SOI boundary: %.2f km\n', dist_from_earth - soi_earth);
+    return; 
 end
+fprintf('===========================================================\n');
 
-%% Propagate inside Earth SoI during fly-by
+
+%% PROPAGATE FLY-BY EARTH
 % Propagate inside the Earth SoI till the satellite exits the Earth SoI
-options_earth_fb = odeset('RelTol', 2.22045e-14, 'AbsTol', 1e-18, 'Events', @(t, y) stopCondition(t, y, soi_earth, 'exit'));
 state0_sat_earth_fb = [r_sat_earth_km; v_sat_earth_km]; % punto di partenza simulazione (calcolato prima) 
+
 t_vec_earth_escape = linspace(t_vec_cruise_earth_earth(end), t_vec_cruise_earth_earth(end)+gg*24*60*60, gg*24*60);
+ode_stop_mode_fb_Earth='exit' ;  % Select stop mode: 'exit' or 'pericenter'
+options_earth_fb = odeset('RelTol', 2.22045e-14, 'AbsTol', 1e-18, 'Events', @(t, y) stopCondition(t, y, soi_earth, ode_stop_mode_fb_Earth));
 [t_vec_earth_escape, state_sat_earth_fb] = ode45(@(t, y) satellite_ode(t, y, mu_earth), t_vec_earth_escape, state0_sat_earth_fb, options_earth_fb);
 r_sat_earthfb_escape = state_sat_earth_fb(:, 1:3)';
 v_sat_earthfb_escape = state_sat_earth_fb(:, 4:6)';
@@ -380,21 +342,34 @@ v_sat_earthfb_sp = v_sat_earthfb_escape(:, end)/au + v_earthfb_sp;
 deltaV_earthfb = ( norm(v_sat_earthfb_sp) - norm(v_sat_interplanetary_earth_earth) ) * au;
 
 
-% pericenter = norm(r_sat_earthfb_escape(:,end));
-% fprintf('Pericentro della traiettoria: %.2f km\n', pericenter);
-fprintf('Delta V del Fly-by per Terra: %.2f km/s \n', deltaV_earthfb);
-% plot_mars_soi(t_vec_earth_escape, r_sat_earthfb_escape, soi_earth, v_earthfb_sp, R_earth);
-% sat.orbit_post_fb_earth = rv2oe(r_sat_earthfb_sp, v_sat_earthfb_sp, mu_sun_au);
+fprintf('\n=================== FLY BY EARTH REPORT ===================\n');
+if strcmp(ode_stop_mode_fb_Earth, 'exit')
+    dists_earthfb = vecnorm(state_sat_earth_fb(:, 1:3), 2, 2); % Distanza punto per punto
+    [min_dist_earthfb, ~] = min(dists_earthfb);
+    fprintf('Closest Approach: %.2f km from Earth surface\n', min_dist_earthfb - R_earth);
+    fprintf('Earths Flyby Delta-v: %.2f km/s\n', deltaV_earthfb);
+    v_exit_earthfb_helio_km = norm(v_sat_earthfb_sp) * au; %[km/s]
+    fprintf('Spacecraft Heliocentric Exit Velocity: %.2f km/s\n', v_exit_earthfb_helio_km);
+elseif strcmp(ode_stop_mode_fb_Earth, 'pericenter')
+    fprintf('Simulation terminated at Pericenter (Closest Approach).\n');
+    fprintf('Altitude: %.2f km from Earth surface\n', norm(r_sat_earthfb_escape(:, end)) - R_earth);
+    return; 
+end
+fprintf('===========================================================\n');
+plot_flyBy(t_vec_earth_escape, r_sat_earthfb_escape, soi_earth, v_earthfb_sp, R_earth);
+
 
 % -------------------------------------------------------------------------
 % CORREZIONE MANUALE DEL TIRO (TARGETING) - POST EARTH FLYBY
 % -------------------------------------------------------------------------
 % Correggiamo leggermente la velocità e l'angolo di uscita dalla SOI di Marte
 % per compensare eventuali errori di puntamento verso la Terra
-
 % 1. Definiamo i fattori di correzione
-k_vel_earthfb = 1.00668;        % Moltiplicatore di velocità (es. 0.999 o 1.001)
-delta_angle_earthfb = 2.75;   % Correzione angolo in gradi (es. +0.5 o -0.5)
+ k_vel_earthfb = 1.0073;        % Moltiplicatore di velocità (es. 0.999 o 1.001)
+ delta_angle_earthfb = 4.99399;   % Correzione angolo in gradi (es. +0.5 o -0.5)
+
+ %k_vel_earthfb = 1.00668;        % Moltiplicatore di velocità (es. 0.999 o 1.001)
+ %delta_angle_earthfb = 2.82975;   % Correzione angolo in gradi (es. +0.5 o -0.5)
 
 % 2. Applichiamo la correzione alla Magnitudine
 v_earthfb_sp_mag_corr = norm(v_sat_earthfb_sp) * k_vel_earthfb;
@@ -411,8 +386,14 @@ R_corr_mars = [cos(theta_corr_mars), -sin(theta_corr_mars), 0;
       
 v_earthfb_sp_dir_corr = (R_corr_mars * v_earthfb_sp_dir)'; % Ruotiamo
 
-% 4. Ricalcoliamo il vettore di velocità finale CORRETTO
+% 4.Ricalcoliamo il vettore di velocità finale CORRETTO
 v_sat_earthfb_sp = (v_earthfb_sp_mag_corr * v_earthfb_sp_dir_corr)';
+
+fprintf('\n============== TARGETING CORRECTION APPLIED ===============\n');
+fprintf('Post fly by Earth Departure Corrections\n');
+fprintf('Velocità scalata di: %.4f\n', k_vel_earthfb);
+fprintf('Angolo ruotato di:   %.2f deg\n', delta_angle_earthfb);
+fprintf('===========================================================\n');
 
 sat.orbit_post_fb_earth = rv2oe(r_sat_earthfb_sp, v_sat_earthfb_sp, mu_sun_au);
 
@@ -422,7 +403,7 @@ sat.orbit_post_fb_earth = rv2oe(r_sat_earthfb_sp, v_sat_earthfb_sp, mu_sun_au);
 state0_interplanetary_earth_mars = [r_sat_earthfb_sp; v_sat_earthfb_sp];
 
 % parametro correttivo gg interplanetary
-kg = 500;
+kg = 510;
 % calcolo il tempo per arrivare da fuori SoI Terra a dentro SoI marte 
 t_cruise_total_earth_mars = jd_mars_fb*24*60*60 - t_vec_earth_escape(end); %durata in secondi del viaggio 
 
@@ -439,7 +420,7 @@ v_sat_interplanetary_earth_mars = state_cruise_earth_mars(end, 4:6)'; % Velocit�
 % Calcolo Data Esatta di Arrivo a SoI marte (Julian Date)
 jd_mars_arrival_actual = t_vec_cruise_earth_mars(end)/24/60/60;
 
-% 7. Dove si trova Marte in quel momento preciso?
+% Dove si trova Marte in quel momento preciso?
 % Calcoliamo posizione e velocità di Marte usando le effemeridi
 [~, r_mars_arr, v_mars_arr] = planet_orbit_coplanar(planets_elements.mars, jd_start, jd_mars_arrival_actual, [jd_start, jd_mars_arrival_actual]);
 r_mars_arr = r_mars_arr(:, end); % Posizione Marte (AU)
@@ -458,14 +439,93 @@ v_sat_mars_km = v_rel_au * au;
 % heck if Mars SoI has been reached
 dist_from_mars = norm(r_sat_mars_km);
 
-fprintf('\n--- INTERPLANETARY EARTH-MARS CRUISE REPORT ---\n');
-fprintf('Durata viaggio: %.2f giorni\n', (t_vec_cruise_earth_mars(end) - t_vec_cruise_earth_mars(1)) / 86400);
+fprintf('\n============= EARTH-MARS CRUISE PHASE REPORT ==============\n');
+fprintf('Time of Flight: %.2f days\n', (t_vec_cruise_earth_mars(end) - t_vec_cruise_earth_mars(1)) / 86400);
 fprintf('Distanza finale da Marte: %.2f km\n', dist_from_mars);
 fprintf('Raggio SOI Marte: %.2f km\n', soi_mars);
 
 if dist_from_mars < soi_mars
-    fprintf('SUCCESS: La sonda è entrata nella SOI di Marte!\n');
+    fprintf('SUCCESS: Spacecraft successfully entered Earth''s SOI!\n');
 else
-    fprintf('WARNING: La sonda è arrivata vicina, ma fuori dalla SOI.\n');
-    fprintf('Errore di puntamento: %.2f km\n', dist_from_mars - soi_mars);
+    fprintf('WARNING: Spacecraft arrived outside the SOI.\n');
+    fprintf('Miss distance from SOI boundary: %.2f km\n', dist_from_mars - soi_mars);
+    return; 
 end
+fprintf('===========================================================\n');
+
+
+%% PROPAGATE FLY-BY EARTH
+% Propagate inside the Mars SoI till the satellite exits the Mars SoI
+state0_sat_mars_escape = [r_sat_mars_km; v_sat_mars_km]; % punto di partenza simulazione (calcolato prima)
+
+t_vec_mars_escape = linspace(t_vec_cruise_earth_mars(end), t_vec_cruise_earth_mars(end)+gg*24*60*60, gg*24*60);
+ode_stop_mode= 'exit'; %scegli tra 'exit' o 'pericenter'
+options_mars_fb = odeset('RelTol', 2.22045e-14, 'AbsTol', 1e-18, 'Events', @(t, y) stopCondition(t, y, soi_mars, ode_stop_mode)); 
+[t_vec_mars_escape, state_sat_mars_fb] = ode45(@(t, y) satellite_ode(t, y, mu_mars), t_vec_mars_escape, state0_sat_mars_escape, options_mars_fb);
+r_sat_mars_escape = state_sat_mars_fb(:, 1:3)';
+v_sat_mars_escape = state_sat_mars_fb(:, 4:6)';
+
+% Compute jd time and Mars position when satellite is exiting Mars SoI limit
+jd_mars_sp = t_vec_mars_escape(end)/24/60/60; % momento esatto in cui si ha uscita Earth SoI
+mars_soi_date = datetime(jd_mars_sp,'convertfrom','juliandate','Format','d-MMM-y HH:mm:ss', 'TimeZone', timezone);
+[~, r_mars_sp, v_mars_sp] = planet_orbit_coplanar(planets_elements.mars, jd_start, jd_mars_sp, [jd_start, jd_mars_sp]);
+r_mars_sp = r_mars_sp(:, end);  
+v_mars_sp = v_mars_sp(:, end);
+
+% Convert from Mars-Centered to J2000 absolute frame
+r_sat_marsfb_sp = r_sat_mars_escape(:, end)/au + r_mars_sp;
+v_sat_marsfb_sp = v_sat_mars_escape(:, end)/au + v_mars_sp;
+
+% Compute fly-by deltaV [km/s]
+deltaV_marsfb = ( norm(v_sat_marsfb_sp) - norm(v_sat_interplanetary_earth_mars) ) * au;
+
+fprintf('\n=================== FLY BY MARS REPORT ====================\n');
+if strcmp(ode_stop_mode, 'exit')
+    dists = vecnorm(state_sat_mars_fb(:, 1:3), 2, 2); % Distanza punto per punto
+    [min_dist, idx_min] = min(dists);
+    fprintf('Closest Approach: %.2f km from Mars surface\n', min_dist - R_mars);
+    fprintf('Mars Flyby Delta-v: %.2f km/s\n', deltaV_marsfb);
+    v_exit_marsfb_helio_km = norm(v_sat_marsfb_sp) * au; %[km/s]
+    fprintf('Spacecraft Heliocentric Exit Velocity: %.2f km/s\n', v_exit_earthfb_helio_km);
+elseif strcmp(ode_stop_mode, 'pericenter')
+    fprintf('Simulation terminated at Pericenter (Closest Approach).\n');
+    fprintf('Altitude: %.2f km from Mars surface\n', norm(r_sat_mars_escape(:, end)) - R_mars);
+    return; 
+end
+fprintf('===========================================================\n');
+plot_flyBy(t_vec_mars_escape, r_sat_mars_escape, soi_mars, v_mars_sp, R_mars);
+
+% -------------------------------------------------------------------------
+% CORREZIONE MANUALE DEL TIRO (TARGETING) - POST EARTH FLYBY
+% -------------------------------------------------------------------------
+% Correggiamo leggermente la velocità e l'angolo di uscita dalla SOI di Marte
+% per compensare eventuali errori di puntamento verso la Terra
+% 1. Definiamo i fattori di correzione
+ k_vel_marsfb = 1.1;        % Moltiplicatore di velocità (es. 0.999 o 1.001)
+ delta_angle_earthfb = 0;   % Correzione angolo in gradi (es. +0.5 o -0.5)
+
+% 2. Applichiamo la correzione alla Magnitudine
+v_marsfb_sp_mag_corr = norm(v_sat_marsfb_sp ) * k_vel_marsfb;
+
+% 3. Applichiamo la correzione alla Direzione
+% Direzione attuale della velocità
+v_marsfb_sp_dir = v_sat_marsfb_sp  / norm(v_sat_marsfb_sp);
+
+% Ruotiamo il vettore direzione di 'delta_angle_mars' gradi nel piano dell'Eclittica
+theta_corr_mars = deg2rad(delta_angle_earthfb);
+R_corr_mars = [cos(theta_corr_mars), -sin(theta_corr_mars), 0;
+               sin(theta_corr_mars),  cos(theta_corr_mars), 0;
+               0,                     0,                    1];
+      
+v_marsfb_sp_dir_corr = (R_corr_mars * v_marsfb_sp_dir)'; % Ruotiamo
+
+% 4.Ricalcoliamo il vettore di velocità finale CORRETTO
+v_sat_marsfb_sp = (v_marsfb_sp_mag_corr * v_marsfb_sp_dir_corr)';
+
+fprintf('\n============== TARGETING CORRECTION APPLIED ===============\n');
+fprintf('Post fly by Earth Departure Corrections\n');
+fprintf('Velocità scalata di: %.4f\n', k_vel_marsfb);
+fprintf('Angolo ruotato di:   %.2f deg\n', delta_angle_earthfb);
+fprintf('===========================================================\n');
+
+sat.orbit_post_mars_fb = rv2oe(r_sat_marsfb_sp, v_sat_marsfb_sp, mu_sun_au);
