@@ -77,3 +77,22 @@ catch ME
     % Corretto l'errore di sintassi nel warning
     warning('MATLAB:PlotError', 'Impossibile creare il plot Mars-Centered: %s', ME.message);
 end
+
+
+
+
+fprintf('\n============= EARTH-EARTH CRUISE PHASE REPORT =============\n');
+fprintf('Time of Flight: %.2f days\n', (t_vec_cruise_earth_earth(end) - t_vec_cruise_earth_earth(1)) / 86400);
+if dist_from_earth < soi_earth
+    fprintf('SUCCESS: Spacecraft successfully entered Earth''s SOI!\n');
+else
+    fprintf('WARNING: Spacecraft arrived outside the SOI.\n');
+    fprintf('Miss distance from SOI boundary: %.2f km\n', dist_from_earth - soi_earth);
+end
+fprintf('===========================================================\n');
+
+
+
+
+
+
