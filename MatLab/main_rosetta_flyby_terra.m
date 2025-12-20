@@ -365,8 +365,11 @@ plot_flyBy(t_vec_earth_escape, r_sat_earthfb_escape, soi_earth, v_earthfb_sp, R_
 % Correggiamo leggermente la velocità e l'angolo di uscita dalla SOI di Marte
 % per compensare eventuali errori di puntamento verso la Terra
 % 1. Definiamo i fattori di correzione
-k_vel_earthfb = 1.00668;        % Moltiplicatore di velocità (es. 0.999 o 1.001)
-delta_angle_earthfb = 2.82975;   % Correzione angolo in gradi (es. +0.5 o -0.5)
+ k_vel_earthfb = 1.0073;        % Moltiplicatore di velocità (es. 0.999 o 1.001)
+ delta_angle_earthfb = 4.99399;   % Correzione angolo in gradi (es. +0.5 o -0.5)
+
+ %k_vel_earthfb = 1.00668;        % Moltiplicatore di velocità (es. 0.999 o 1.001)
+ %delta_angle_earthfb = 2.82975;   % Correzione angolo in gradi (es. +0.5 o -0.5)
 
 % 2. Applichiamo la correzione alla Magnitudine
 v_earthfb_sp_mag_corr = norm(v_sat_earthfb_sp) * k_vel_earthfb;
@@ -400,7 +403,7 @@ sat.orbit_post_fb_earth = rv2oe(r_sat_earthfb_sp, v_sat_earthfb_sp, mu_sun_au);
 state0_interplanetary_earth_mars = [r_sat_earthfb_sp; v_sat_earthfb_sp];
 
 % parametro correttivo gg interplanetary
-kg = 500;
+kg = 510;
 % calcolo il tempo per arrivare da fuori SoI Terra a dentro SoI marte 
 t_cruise_total_earth_mars = jd_mars_fb*24*60*60 - t_vec_earth_escape(end); %durata in secondi del viaggio 
 
@@ -495,5 +498,34 @@ plot_flyBy(t_vec_mars_escape, r_sat_mars_escape, soi_mars, v_mars_sp, R_mars);
 % -------------------------------------------------------------------------
 % CORREZIONE MANUALE DEL TIRO (TARGETING) - POST EARTH FLYBY
 % -------------------------------------------------------------------------
+% Correggiamo leggermente la velocità e l'angolo di uscita dalla SOI di Marte
+% per compensare eventuali errori di puntamento verso la Terra
+% 1. Definiamo i fattori di correzione
+ k_vel_marsfb = 1.1;        % Moltiplicatore di velocità (es. 0.999 o 1.001)
+ delta_angle_earthfb = 0;   % Correzione angolo in gradi (es. +0.5 o -0.5)
+
+% 2. Applichiamo la correzione alla Magnitudine
+v_marsfb_sp_mag_corr = norm(v_sat_marsfb_sp ) * k_vel_marsfb;
+
+% 3. Applichiamo la correzione alla Direzione
+% Direzione attuale della velocità
+v_marsfb_sp_dir = v_sat_marsfb_sp  / norm(v_sat_marsfb_sp);
+
+% Ruotiamo il vettore direzione di 'delta_angle_mars' gradi nel piano dell'Eclittica
+theta_corr_mars = deg2rad(delta_angle_earthfb);
+R_corr_mars = [cos(theta_corr_mars), -sin(theta_corr_mars), 0;
+               sin(theta_corr_mars),  cos(theta_corr_mars), 0;
+               0,                     0,                    1];
+      
+v_marsfb_sp_dir_corr = (R_corr_mars * v_marsfb_sp_dir)'; % Ruotiamo
+
+% 4.Ricalcoliamo il vettore di velocità finale CORRETTO
+v_sat_marsfb_sp = (v_marsfb_sp_mag_corr * v_marsfb_sp_dir_corr)';
+
+fprintf('\n============== TARGETING CORRECTION APPLIED ===============\n');
+fprintf('Post fly by Earth Departure Corrections\n');
+fprintf('Velocità scalata di: %.4f\n', k_vel_marsfb);
+fprintf('Angolo ruotato di:   %.2f deg\n', delta_angle_earthfb);
+fprintf('===========================================================\n');
 
 sat.orbit_post_mars_fb = rv2oe(r_sat_marsfb_sp, v_sat_marsfb_sp, mu_sun_au);
