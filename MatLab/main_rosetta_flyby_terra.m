@@ -377,13 +377,65 @@ r_sat_earthfb_sp = r_sat_earthfb_escape(:, end)/au + r_earthfb_sp;
 v_sat_earthfb_sp = v_sat_earthfb_escape(:, end)/au + v_earthfb_sp;
 
 % Compute fly-by deltaV [km/s]
-
 deltaV_earthfb = ( norm(v_sat_earthfb_sp) - norm(v_sat_interplanetary_earth_earth) ) * au;
+
 
 pericenter = norm(r_sat_earthfb_escape(:,end));
 fprintf('Pericentro della traiettoria: %.2f km\n', pericenter);
 fprintf('Delta V del Fly-by per Terra: %.2f km/s \n', deltaV_earthfb);
-
 plot_mars_soi(t_vec_earth_escape, r_sat_earthfb_escape, soi_earth, v_earthfb_sp, R_earth);
-
 sat.orbit_post_fb_earth = rv2oe(r_sat_earthfb_sp, v_sat_earthfb_sp, mu_sun_au);
+
+%% Propagate from outside Earth SoI to Mars SoI - interplanetary 
+% Propagate from outside Earth SoI till the satellite enters the Mars SoI
+
+state0_interplanetary_earth_mars = [r_sat_earthfb_sp; v_sat_earthfb_sp];
+
+% parametro correttivo gg interplanetary
+kg = 0;
+% calcolo il tempo per arrivare da fuori SoI Terra a dentro SoI marte 
+t_cruise_total_earth_mars = jd_mars_fb*24*60*60 - t_vec_earth_escape(end); %durata in secondi del viaggio 
+
+t_cruise_total_earth_mars=t_cruise_total_earth_mars+kg*24*60*60;
+t_vec_cruise_earth_mars= linspace(t_vec_earth_escape(end), jd_mars_fb*24*60*60  + (kg*24*60*60) ,t_cruise_total_earth_mars/3600);
+% propagazione
+options_cruise_earth_mars = odeset('RelTol', 2.22045e-14, 'AbsTol', 1e-18, 'Events', @(t, y) stopCondition_interplanetary(t, y, jd_start , planets_elements.mars , soi_mars));
+[t_vec_cruise_earth_mars, state_cruise_earth_mars] = ode45(@(t, y) satellite_ode(t, y, mu_sun_au), t_vec_cruise_earth_mars, state0_interplanetary_earth_mars, options_cruise_earth_mars);
+
+% Estrazione Risultati finali (Stato Eliocentrico all'arrivo)
+r_sat_interplanetary_earth_mars = state_cruise_earth_mars(end, 1:3)'; % Posizione rispetto al Sole (AU)
+v_sat_interplanetary_earth_mars = state_cruise_earth_mars(end, 4:6)'; % Velocità rispetto al Sole (AU/s)
+
+% Calcolo Data Esatta di Arrivo a SoI marte (Julian Date)
+jd_mars_arrival_actual = t_vec_cruise_earth_mars(end)/24/60/60;
+
+% 7. Dove si trova Marte in quel momento preciso?
+% Calcoliamo posizione e velocità di Marte usando le effemeridi
+[~, r_mars_arr, v_mars_arr] = planet_orbit_coplanar(planets_elements.mars, jd_start, jd_mars_arrival_actual, [jd_start, jd_mars_arrival_actual]);
+r_mars_arr = r_mars_arr(:, end); % Posizione Marte (AU)
+v_mars_arr = v_mars_arr(:, end); % Velocità Marte (AU/s)
+
+
+% Convert from J2000 absolute frame to Mars-Centered frame
+% Calcoliamo il vettore relativo (Sonda rispetto a Marte)
+r_rel_au = r_sat_interplanetary_earth_mars - r_mars_arr; % Vettore distanza in AU
+v_rel_au = v_sat_interplanetary_earth_mars - v_mars_arr; % Vettore velocità relativa in AU/s
+
+% Convertiamo in km e km/s per il controllo finale
+r_sat_mars_km = r_rel_au * au; 
+v_sat_mars_km = v_rel_au * au;
+
+% heck if Mars SoI has been reached
+dist_from_mars = norm(r_sat_mars_km);
+
+fprintf('\n--- INTERPLANETARY EARTH-MARS CRUISE REPORT ---\n');
+fprintf('Durata viaggio: %.2f giorni\n', (t_vec_cruise_earth_mars(end) - t_vec_cruise_earth_mars(1)) / 86400);
+fprintf('Distanza finale da Marte: %.2f km\n', dist_from_mars);
+fprintf('Raggio SOI Marte: %.2f km\n', soi_mars);
+
+if dist_from_mars < soi_mars
+    fprintf('SUCCESS: La sonda è entrata nella SOI di Marte!\n');
+else
+    fprintf('WARNING: La sonda è arrivata vicina, ma fuori dalla SOI.\n');
+    fprintf('Errore di puntamento: %.2f km\n', dist_from_mars - soi_mars);
+end
