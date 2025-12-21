@@ -2,7 +2,7 @@
 try
     
     sat_pos_au = state_cruise_mars_saturn(:, 1:3); % Nx3 (AU)
-    figure('Name', 'Traiettoria Earth->Mars (2D XY)'); clf; hold on
+    figure('Name', 'Traiettoria Mars->Saturn (2D XY)'); clf; hold on
     
     % Sole
     plot(0,0,'y*','MarkerSize',12,'DisplayName','Sole');
