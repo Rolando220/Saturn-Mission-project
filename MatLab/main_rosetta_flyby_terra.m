@@ -40,10 +40,10 @@ sat.orbit0.nu = -240.4281;     % deg
 %% Initialization
 % Select starting date and convert it in Julian Date
 timezone = 'UTC';
-start_date = datetime('2034-07-25 12:00:00', "TimeZone", timezone);%rosetta parte il 2004-03-02 12:00:00
+start_date = datetime('2034-07-25 12:00:00', "TimeZone", timezone); 
 earth_fb_date = datetime('2036-09-18 12:00:00', "TimeZone", timezone);
-mars_fb_date = datetime('2040-02-03 12:00:00', "TimeZone", timezone);
-saturn_arrival_date = datetime('2044-07-17 12:00:00', "TimeZone", timezone);
+mars_fb_date = datetime('2039-12-17 12:00:00', "TimeZone", timezone);
+saturn_arrival_date = datetime('2044-10-25 12:00:00', "TimeZone", timezone);
 end_date = datetime('2046-05-05 12:00:00', "TimeZone", timezone);
 
 jd_start = juliandate(start_date);
@@ -392,7 +392,7 @@ sat.orbit_post_fb_earth = rv2oe(r_sat_earthfb_sp, v_sat_earthfb_sp, mu_sun_au);
 state0_interplanetary_earth_mars = [r_sat_earthfb_sp; v_sat_earthfb_sp];
 
 % parametro correttivo gg interplanetary
-kg = -48;
+kg = 0;
 % calcolo il tempo per arrivare da fuori SoI Terra a dentro SoI marte 
 t_cruise_total_earth_mars = jd_mars_fb*24*60*60 - t_vec_earth_escape(end); %durata in secondi del viaggio 
 
@@ -490,8 +490,8 @@ plot_flyBy(t_vec_mars_escape, r_sat_mars_escape, soi_mars, v_mars_sp, R_mars);
 % Correggiamo leggermente la velocità e l'angolo di uscita dalla SOI di Marte
 % per compensare eventuali errori di puntamento verso la Terra
 % 1. Definiamo i fattori di correzione
- k_vel_marsfb = 1.115;        % Moltiplicatore di velocità (es. 0.999 o 1.001)
- delta_angle_earthfb = 17.5;   % Correzione angolo in gradi (es. +0.5 o -0.5)
+ k_vel_marsfb = 1.1148;        % Moltiplicatore di velocità (es. 0.999 o 1.001)
+ delta_angle_earthfb = 19.01;   % Correzione angolo in gradi (es. +0.5 o -0.5)
 
 % 2. Applichiamo la correzione alla Magnitudine
 v_marsfb_sp_mag_corr = norm(v_sat_marsfb_sp ) * k_vel_marsfb;
@@ -525,7 +525,7 @@ sat.orbit_post_mars_fb = rv2oe(r_sat_marsfb_sp, v_sat_marsfb_sp, mu_sun_au);
 state0_interplanetary_mars_saturn = [r_sat_marsfb_sp; v_sat_marsfb_sp];
 
 % parametro correttivo gg interplanetary
-kg = 100;
+kg = 90;
 % calcolo il tempo per arrivare da fuori SoI Marte a dentro SoI Saturno 
 t_cruise_total_mars_saturn = jd_saturn_arrival*24*60*60 - t_vec_mars_escape(end); %durata in secondi del viaggio 
 
@@ -537,7 +537,7 @@ options_cruise_mars_saturn = odeset('RelTol', 2.22045e-14, 'AbsTol', 1e-18, 'Eve
 
 % Estrazione Risultati finali (Stato Eliocentrico all'arrivo)
 r_sat_interplanetary_mars_saturn = state_cruise_mars_saturn(end, 1:3)'; % Posizione rispetto al Sole (AU)
-v_sat_interplanetary_mars_saturn = state_cruise_mars_saturn(end, 4:6)'; % Velocità rispetto al Sole (AU/s)
+v_sat_interplanetary_mars_saturn = state_cruise_mars_saturn(end, 4:6)'; % Velocità rispetto al Sole (AU/s) V_sa
 
 % Calcolo Data Esatta di Arrivo a SoI marte (Julian Date)
 jd_saturn_arrival_actual = t_vec_cruise_mars_saturn(end)/24/60/60;
@@ -573,3 +573,85 @@ else
 end
 fprintf('===========================================================\n');
 
+%% PROPAGATE INSIDE SATURN SOI
+% Propagate inside the Saturn SoI till the satellite reaches the desired
+% orbit
+state0_sat_saturn_soi = [r_sat_saturn_km; v_sat_saturn_km]; % punto di partenza simulazione (calcolato prima)
+
+gg = 300;
+t_vec_saturn_soi = linspace(t_vec_cruise_mars_saturn(end), t_vec_cruise_mars_saturn(end)+gg*24*60*60, gg*24*60);
+ode_stop_mode = 'pericenter'; %scegli tra 'exit' o 'pericenter'
+options_saturn_soi = odeset('RelTol', 2.22045e-14, 'AbsTol', 1e-18, 'Events', @(t, y) stopCondition(t, y, soi_saturn, ode_stop_mode)); 
+[t_vec_saturn_soi, state_sat_saturn_soi] = ode45(@(t, y) satellite_ode(t, y, mu_saturn), t_vec_saturn_soi, state0_sat_saturn_soi, options_saturn_soi);
+r_sat_saturn_soi = state_sat_saturn_soi(:, 1:3)';
+v_sat_saturn_soi = state_sat_saturn_soi(:, 4:6)';
+
+% Compute jd time and Mars position when satellite is exiting Mars SoI limit
+jd_saturn_sp = t_vec_saturn_soi(end)/24/60/60; % momento esatto in cui si ha uscita Earth SoI
+saturn_soi_date = datetime(jd_saturn_sp,'convertfrom','juliandate','Format','d-MMM-y HH:mm:ss', 'TimeZone', timezone);
+[~, r_saturn_sp, v_saturn_sp] = planet_orbit_coplanar(planets_elements.saturn, jd_start, jd_saturn_sp, [jd_start, jd_saturn_sp]);
+r_saturn_sp = r_saturn_sp(:, end);  
+v_saturn_sp = v_saturn_sp(:, end);
+
+% Convert from saturn-Centered to J2000 absolute frame
+r_sat_saturn_sp = r_sat_saturn_soi(:, end)/au + r_saturn_sp;
+v_sat_saturn_sp = v_sat_saturn_soi(:, end)/au + v_saturn_sp;
+
+% Compute fly-by deltaV [km/s]
+deltaV_saturn = ( norm(v_sat_saturn_sp) - norm(v_sat_interplanetary_mars_saturn) ) * au;
+deltaV_inside_soi = norm(v_sat_saturn_soi(:, end)) - norm(v_sat_saturn_km);
+
+fprintf('\n=================== SATURN SOI REPORT ====================\n');
+if strcmp(ode_stop_mode, 'exit')
+    dists = vecnorm(state_sat_saturn_soi(:, 1:3), 2, 2); % Distanza punto per punto
+    [min_dist, idx_min] = min(dists);
+    fprintf('Closest Approach: %.2f km from Saturn surface\n', min_dist - R_saturn);
+    fprintf('Saturn Flyby Delta-v: %.2f km/s\n', deltaV_saturn);
+    v_exit_saturn_helio_km = norm(v_sat_saturn_sp) * au; %[km/s]
+    fprintf('Spacecraft Heliocentric Exit Velocity: %.2f km/s\n', v_exit_saturn_helio_km);
+elseif strcmp(ode_stop_mode, 'pericenter')
+    fprintf('Simulation terminated at Pericenter (Closest Approach).\n');
+    fprintf('Altitude: %.2f km from Saturn surface\n', norm(r_sat_saturn_soi(:, end)) - R_saturn);
+    fprintf('Speed at pericenter compared to Saturn: %.2f km/s \n', norm(v_sat_saturn_soi(:, end)));
+    fprintf('DeltaV at pericenter compared to Saturn: %.2f km/s \n', deltaV_inside_soi);
+end
+fprintf('===========================================================\n');
+plot_flyBy(t_vec_saturn_soi, r_sat_saturn_soi, soi_saturn, v_saturn_sp, R_saturn);
+
+%% Caputre Maneuver
+% Manovra per rimanere in orbita circolare intorno a Saturno, applicata
+% quando arriviamo nel punto più vicino a Saturno nella propagazione
+% precedente
+
+v_cattura = sqrt(mu_saturn/norm(r_sat_saturn_soi(:,end)));  % velocità necessaria per rimanere in orbita circolare
+
+% Calcolo del Delta-V necessario
+% Dobbiamo frenare: DeltaV = V_attuale - V_necessaria
+deltaV_capture = v_cattura - norm(v_sat_saturn_soi(:,end));
+
+% 4. Calcoliamo il nuovo vettore velocità post-manovra
+% La direzione rimane la stessa (tangente all'orbita), cambia solo il modulo
+v_p_dir = v_sat_saturn_soi(:,end) / norm(v_sat_saturn_soi(:,end)); % Versore direzione velocità
+v_post_maneuver = v_cattura * v_p_dir;
+
+sat.orbit_post_capture = rv2oe(r_sat_saturn_soi(:,end), v_post_maneuver, mu_saturn);
+
+% Se vuoi propagare l'orbita circolare per vederla graficamente:
+options_final_orbit = odeset('RelTol', 2.22045e-14, 'AbsTol', 1e-18);
+period_saturn = 2 * pi * sqrt(norm(r_sat_saturn_soi(:,end))^3 / mu_saturn);
+t_orbit = linspace(0, 2*period_saturn, 1000); % Propaghiamo per 2 periodi
+    
+    state0_final = [r_sat_saturn_soi(:,end); v_post_maneuver];
+    [~, state_final] = ode45(@(t, y) satellite_ode(t, y, mu_saturn), t_orbit, state0_final, options_final_orbit);
+    
+    % Plot dell'orbita di cattura (aggiungi al plot esistente o nuovo)
+    % Usiamo la tua funzione plot_flyBy o plot manuale
+    figure('Name', 'Saturn Capture Orbit');
+    plot3(state_final(:,1), state_final(:,2), state_final(:,3), 'g', 'LineWidth', 2);
+    hold on; grid on; axis equal;
+    [xs, ys, zs] = sphere(50);
+    surf(xs*R_saturn, ys*R_saturn, zs*R_saturn, 'FaceColor', [0.8 0.6 0.4]); % Saturno
+    title('Orbita Finale di Cattura attorno a Saturno');
+    xlabel('x [km]'); ylabel('y [km]'); zlabel('z [km]');
+    legend('Orbita Circolare Finale', 'Saturno');
+                                                            
