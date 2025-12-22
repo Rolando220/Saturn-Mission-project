@@ -37,8 +37,8 @@ try
         v_earth_arr_vec = v_earth_arr * scale_seconds;  % AU
         quiver(r_earth_sp(1), r_earth_sp(2), v_earth_vec(1), v_earth_vec(2), 0, 'b', 'LineWidth', 1.4, 'MaxHeadSize', 0.5);
         quiver(r_earth_arr(1), r_earth_arr(2), v_earth_arr_vec(1), v_earth_arr_vec(2), 0, 'c', 'LineWidth', 1.4, 'MaxHeadSize', 0.5);
-        text(r_earth_sp(1) + v_earth_vec(1)*0.06, r_earth_sp(2) + v_earth_vec(2)*0.06, 'v_{Earth,start} (scaled)', 'Color', 'b');
-        text(r_earth_arr(1) + v_earth_arr_vec(1)*0.06, r_earth_arr(2) + v_earth_arr_vec(2)*0.06, 'v_{Earth,arr} (scaled)', 'Color', 'c');
+        text(r_earth_sp(1) + v_earth_vec(1)*0.06, r_earth_sp(2) + v_earth_vec(2)*0.06, 'v_{Earth,start}', 'Color', 'b');
+        text(r_earth_arr(1) + v_earth_arr_vec(1)*0.06, r_earth_arr(2) + v_earth_arr_vec(2)*0.06, 'v_{Earth,arr}', 'Color', 'c');
     catch
         % non-critico se quiver fallisce
     end
