@@ -41,7 +41,7 @@ sat.orbit0.nu = -240.4281;     % deg
 % Select starting date and convert it in Julian Date
 timezone = 'UTC';
 start_date = datetime('2034-07-25 12:00:00', "TimeZone", timezone); 
-earth_fb_date = datetime('2036-09-18 12:00:00', "TimeZone", timezone);
+earth_fb_date = datetime('2036-10-30 12:00:00', "TimeZone", timezone);
 mars_fb_date = datetime('2039-12-17 12:00:00', "TimeZone", timezone);
 saturn_arrival_date = datetime('2045-01-23 12:00:00', "TimeZone", timezone);
 end_date = datetime('2045-07-05 12:00:00', "TimeZone", timezone);
@@ -186,12 +186,12 @@ fprintf('===========================================================\n');
 % 1. Definiamo i fattori di correzione
 
 % Correzioni fly by Terra
-k_vel = 0.9957194;       % Moltiplicatore di velocità (es. 0.999 o 1.001)
-delta_angle = -0.5263;   % Correzione angolo in gradi (es. +0.5 o -0.5)
+k_vel = 0.997239;       % Moltiplicatore di velocità (es. 0.999 o 1.001)
+delta_angle = -0.1354401;   % Correzione angolo in gradi (es. +0.5 o -0.5)
 
 
 % 2. Applichiamo la correzione alla Magnitudine
-v_old=v_esc; 
+v_old = v_esc; 
 v_esc_mag_corr = norm(v_esc) * k_vel;
 
 % 3. Applichiamo la correzione alla Direzione
@@ -348,7 +348,7 @@ elseif strcmp(ode_stop_mode_fb_Earth, 'pericenter')
     return; 
 end
 fprintf('===========================================================\n');
-plot_flyBy(t_vec_earth_escape, r_sat_earthfb_escape, soi_earth, v_earthfb_sp, R_earth);
+% plot_flyBy(t_vec_earth_escape, r_sat_earthfb_escape, soi_earth, v_earthfb_sp, R_earth);
 
 
 % -------------------------------------------------------------------------
@@ -358,14 +358,12 @@ plot_flyBy(t_vec_earth_escape, r_sat_earthfb_escape, soi_earth, v_earthfb_sp, R_
 % Terra
 % per compensare eventuali errori di puntamento verso la Terra
 % 1. Definiamo i fattori di correzione
- k_vel_earthfb = 1.0051;        % Moltiplicatore di velocità (es. 0.999 o 1.001)
- delta_angle_earthfb = -0.305951;   % Correzione angolo in gradi (es. +0.5 o -0.5)
-
- %k_vel_earthfb = 1.00668;        % Moltiplicatore di velocità (es. 0.999 o 1.001)
- %delta_angle_earthfb = 2.82975;   % Correzione angolo in gradi (es. +0.5 o -0.5)
+ 
+k_vel_earthfb = 0.95495;        % Moltiplicatore di velocità (es. 0.999 o 1.001)
+delta_angle_earthfb = 1.13825;   % Correzione angolo in gradi (es. +0.5 o -0.5)
 
 % 2. Applichiamo la correzione alla Magnitudine
-v_old=v_sat_earthfb_sp; 
+v_old = v_sat_earthfb_sp; 
 v_earthfb_sp_mag_corr = norm(v_sat_earthfb_sp) * k_vel_earthfb;
 
 % 3. Applichiamo la correzione alla Direzione
@@ -402,7 +400,7 @@ sat.orbit_post_fb_earth = rv2oe(r_sat_earthfb_sp, v_sat_earthfb_sp, mu_sun_au);
 state0_interplanetary_earth_mars = [r_sat_earthfb_sp; v_sat_earthfb_sp];
 
 % parametro correttivo gg interplanetary
-kg = 0;
+kg = 59;
 % calcolo il tempo per arrivare da fuori SoI Terra a dentro SoI marte 
 t_cruise_total_earth_mars = jd_mars_fb*24*60*60 - t_vec_earth_escape(end); %durata in secondi del viaggio 
 
@@ -492,7 +490,7 @@ elseif strcmp(ode_stop_mode, 'pericenter')
     return; 
 end
 fprintf('===========================================================\n');
-plot_flyBy(t_vec_mars_escape, r_sat_mars_escape, soi_mars, v_mars_sp, R_mars);
+% plot_flyBy(t_vec_mars_escape, r_sat_mars_escape, soi_mars, v_mars_sp, R_mars);
 
 % -------------------------------------------------------------------------
 % CORREZIONE MANUALE DEL TIRO (TARGETING) - POST MARS FLYBY
@@ -500,8 +498,8 @@ plot_flyBy(t_vec_mars_escape, r_sat_mars_escape, soi_mars, v_mars_sp, R_mars);
 % Correggiamo leggermente la velocità e l'angolo di uscita dalla SOI di Marte
 % per compensare eventuali errori di puntamento verso la Terra
 % 1. Definiamo i fattori di correzione
- k_vel_marsfb = 1.1148;        % Moltiplicatore di velocità (es. 0.999 o 1.001)
- delta_angle_earthfb = 19.01;   % Correzione angolo in gradi (es. +0.5 o -0.5)
+ k_vel_marsfb = 1.125;        % Moltiplicatore di velocità (es. 0.999 o 1.001)
+ delta_angle_earthfb = 7.91;   % Correzione angolo in gradi (es. +0.5 o -0.5)
 
 % 2. Applichiamo la correzione alla Magnitudine
 v_old = v_sat_marsfb_sp;
@@ -540,7 +538,7 @@ sat.orbit_post_mars_fb = rv2oe(r_sat_marsfb_sp, v_sat_marsfb_sp, mu_sun_au);
 state0_interplanetary_mars_saturn = [r_sat_marsfb_sp; v_sat_marsfb_sp];
 
 % parametro correttivo gg interplanetary
-kg = 0;
+kg = 100;
 % calcolo il tempo per arrivare da fuori SoI Marte a dentro SoI Saturno 
 t_cruise_total_mars_saturn = jd_saturn_arrival*24*60*60 - t_vec_mars_escape(end); %durata in secondi del viaggio 
 
@@ -593,7 +591,7 @@ fprintf('===========================================================\n');
 % orbit
 state0_sat_saturn_soi = [r_sat_saturn_km; v_sat_saturn_km]; % punto di partenza simulazione (calcolato prima)
 
-gg = 300;
+gg = 200;
 t_vec_saturn_soi = linspace(t_vec_cruise_mars_saturn(end), t_vec_cruise_mars_saturn(end)+gg*24*60*60, gg*24*60);
 ode_stop_mode = 'pericenter'; %scegli tra 'exit' o 'pericenter'
 options_saturn_soi = odeset('RelTol', 2.22045e-14, 'AbsTol', 1e-18, 'Events', @(t, y) stopCondition(t, y, soi_saturn, ode_stop_mode)); 
@@ -640,7 +638,7 @@ plot_flyBy(t_vec_saturn_soi, r_sat_saturn_soi, soi_saturn, v_saturn_sp, R_saturn
 % precedente
 R_Titan = 1222000;          % km
 R_Encelado = 238000;        % km
-e_des = (R_Titan - R_Encelado)/(R_Titan + R_Encelado);
+e_des = (R_Titan - R_Encelado)/(R_Titan + R_Encelado) + 0.1;
 v_cattura = sqrt( (mu_saturn/norm(r_sat_saturn_soi(:,end))) * (1 + e_des));  % velocità necessaria per rimanere in orbita circolare
 % Calcolo del Delta-V necessario
 % Dobbiamo frenare: DeltaV = V_attuale - V_necessaria
@@ -665,6 +663,19 @@ plot3(state_final(:,1), state_final(:,2), state_final(:,3), 'g', 'LineWidth', 2)
 hold on; grid on; axis equal;
 [xs, ys, zs] = sphere(50);
 surf(xs*R_saturn, ys*R_saturn, zs*R_saturn, 'FaceColor', [0.8 0.6 0.4]); % Saturno
+% --- Orbite circolari di Encelado e Titano (assunte nel piano XY, z=0) ---
+theta = linspace(0, 2*pi, 1000);
+% Encelado
+x_enc = R_Encelado * cos(theta);
+y_enc = R_Encelado * sin(theta);
+z_enc = zeros(size(theta));
+plot3(x_enc, y_enc, z_enc, 'b--', 'LineWidth', 1.5);
+% Titano
+x_tit = R_Titan * cos(theta);
+y_tit = R_Titan * sin(theta);
+z_tit = zeros(size(theta));
+plot3(x_tit, y_tit, z_tit, 'r--', 'LineWidth', 1.5);
+% Aggiorna legenda (include anche le orbite)
 title('Orbita Finale di Cattura attorno a Saturno');
 xlabel('x [km]'); ylabel('y [km]'); zlabel('z [km]');
-legend('Orbita Circolare Finale', 'Saturno');
+legend('Orbita Finale', 'Saturno', 'Orbita Encelado', 'Orbita Titano');
